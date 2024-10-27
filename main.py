@@ -2,8 +2,6 @@ from flask import Flask, request, jsonify, render_template_string
 import json
 import os
 from datetime import datetime, timedelta
-import random
-import string
 
 app = Flask(__name__)
 
@@ -16,10 +14,6 @@ if os.path.exists(APPROVALS_FILE):
         approvals = json.load(f)
 else:
     approvals = {}
-
-# Function to generate a unique 7-digit key
-def generate_unique_key():
-    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=7))
 
 # HTML template
 HTML_TEMPLATE = '''
@@ -82,14 +76,13 @@ HTML_TEMPLATE = '''
         <button class="button" id="sendApproval">Send Approval</button>
         <p id="keyMessage"></p>
         <p id="waitMessage">Approval already requested. Please wait for 3 months.</p>
-        <img src="https://raw.githubusercontent.com/FaiziXd/AproVal-system-/refs/heads/main/28a4c2693dd79f14362193394aea0288.jpg" alt="Approval Page Image">
     </div>
 
     <div id="visitPage">
         <h2>Welcome! Your Approval is Accepted</h2>
         <p>Visit Your Own APK</p>
         <a href="https://herf-2-faizu-apk.onrender.com/" target="_blank" class="button">Visit</a>
-        <img src="https://raw.githubusercontent.com/FaiziXd/AproVal-system-/refs/heads/main/130b4d853ec2cb9ed5f02d4072529908.jpg" alt="Visit Page Image">
+        <img src="https://raw.githubusercontent.com/FaiziXd/AproVal-system-/refs/heads/main/130b4d853ec2cb9ed5f02d4072529908.jpg" alt="Visit Image">
     </div>
 
     <div id="adminLogin">
@@ -251,11 +244,13 @@ def send_approval():
         last_request_time = datetime.fromisoformat(approval["timestamp"])
 
         # Calculate 3-month waiting period
-        if approval["status"] == "approved" and current_time < last_request_time + timedelta(days=90):
-            return jsonify({"status": "wait", "key": approval["key"]})
+        if approval["status"] == "approved":
+            # Check if 3 months have passed since approval
+            if current_time < last_request_time + timedelta(days=90):
+                return jsonify({"status": "wait", "key": approval["key"]})
 
     # Generate new key
-    unique_key = generate_unique_key()
+    unique_key = f"KEY-{len(approvals) + 1:07d}"  # 7-digit unique key
     approvals[device_id] = {"status": "wait", "key": unique_key, "timestamp": current_time.isoformat()}
     save_approvals()
 
@@ -263,7 +258,7 @@ def send_approval():
 
 @app.route('/get_approvals', methods=['GET'])
 def get_approvals():
-    return jsonify({"approvals": [{"device_id": device_id, **details} for device_id, details in approvals.items()]})
+    return jsonify({"approvals": [{"device_id": device_id, "key": approval["key"]} for device_id, approval in approvals.items()]})
 
 @app.route('/admin_approve', methods=['POST'])
 def admin_approve():
@@ -271,16 +266,17 @@ def admin_approve():
     key = data.get('key')
     password = data.get('password')
 
-    if password != adminPassword:
-        return jsonify({"status": "error", "message": "Incorrect password."})
+    if password != 'THE FAIZU':
+        return jsonify({"status": "error", "message": "Invalid admin password"}), 403
 
-    # Find the device by key and approve
-    for device_id, details in approvals.items():
-        if details['key'] == key:
-            details['status'] = 'approved'
+    for device_id, approval in approvals.items():
+        if approval["key"] == key:
+            approval["status"] = "approved"
+            approval["timestamp"] = datetime.now().isoformat()  # Update timestamp for approval
             save_approvals()
             return jsonify({"status": "approved"})
-    return jsonify({"status": "error", "message": "Key not found."})
+
+    return jsonify({"status": "error", "message": "Key not found"}), 404
 
 @app.route('/admin_reject', methods=['POST'])
 def admin_reject():
@@ -288,16 +284,16 @@ def admin_reject():
     key = data.get('key')
     password = data.get('password')
 
-    if password != adminPassword:
-        return jsonify({"status": "error", "message": "Incorrect password."})
+    if password != 'THE FAIZU':
+        return jsonify({"status": "error", "message": "Invalid admin password"}), 403
 
-    # Find the device by key and reject
     for device_id in list(approvals.keys()):
-        if approvals[device_id]['key'] == key:
+        if approvals[device_id]["key"] == key:
             del approvals[device_id]
             save_approvals()
             return jsonify({"status": "rejected"})
-    return jsonify({"status": "error", "message": "Key not found."})
+
+    return jsonify({"status": "error", "message": "Key not found"}), 404
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
