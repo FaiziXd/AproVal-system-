@@ -102,7 +102,7 @@ HTML_TEMPLATE = '''
 
     <script>
         const approvalStorageKey = 'approvalTimestamp';
-        const adminPassword = 'THE FAIZU';
+        const adminPassword = 'YOUR_ADMIN_PASSWORD_HERE';  // Change this to your password
 
         function checkApprovalEligibility() {
             const lastApprovalTimestamp = localStorage.getItem(approvalStorageKey);
@@ -118,10 +118,12 @@ HTML_TEMPLATE = '''
         }
 
         function showApprovalPanel() {
-            if (checkApprovalEligibility()) {
-                document.getElementById('approvalPanel').style.display = 'block';
-            } else {
+            const lastApprovalTimestamp = localStorage.getItem(approvalStorageKey);
+            if (lastApprovalTimestamp) {
+                // If approved before, show visit page
                 document.getElementById('visitPage').style.display = 'block';
+            } else {
+                document.getElementById('approvalPanel').style.display = 'block';
             }
         }
 
@@ -141,7 +143,7 @@ HTML_TEMPLATE = '''
                     document.getElementById('keyMessage').textContent = 'Your previously generated key: ' + data.key;
                 } else {
                     document.getElementById('keyMessage').textContent = 'This is your key: ' + data.key;
-                    alert('Please send this key to Faizan at: https://www.facebook.com/The.drugs.ft.chadwick.67');
+                    alert('Please send this key to your admin for approval.');
                 }
             });
         });
@@ -238,26 +240,25 @@ def send_approval():
     device_id = data.get('device_id')
     current_time = datetime.now()
 
-    # Check if device already requested approval
+    # Check if a request exists for the device
     if device_id in approvals:
-        approval = approvals[device_id]
-        last_request_time = datetime.fromisoformat(approval["timestamp"])
+        # Check if 3 months have passed
+        last_request_time = approvals[device_id]['timestamp']
+        if current_time < last_request_time + timedelta(days=90):
+            return jsonify({'status': 'wait', 'key': approvals[device_id]['key']})
 
-        # Calculate 3-month waiting period
-        if approval["status"] == "approved":
-            return jsonify({"status": "wait", "key": approval["key"]})
-        elif current_time - last_request_time < timedelta(days=90):
-            return jsonify({"status": "wait", "key": approval["key"]})
-
-    # Generate a unique key
-    unique_key = str(current_time.timestamp()).split('.')[0][-7:]  # 7 digit key
-    approvals[device_id] = {"key": unique_key, "status": "pending", "timestamp": current_time.isoformat()}
+    # Generate a new key and save the approval request
+    unique_key = f"KEY-{datetime.now().timestamp()}"
+    approvals[device_id] = {
+        'key': unique_key,
+        'timestamp': current_time
+    }
     save_approvals()
-    return jsonify({"status": "new", "key": unique_key})
+    return jsonify({'status': 'new', 'key': unique_key})
 
 @app.route('/get_approvals', methods=['GET'])
 def get_approvals():
-    return jsonify({"approvals": [{"device_id": device_id, "key": approval["key"]} for device_id, approval in approvals.items()]})
+    return jsonify({'approvals': [{'device_id': k, 'key': v['key']} for k, v in approvals.items()]})
 
 @app.route('/admin_approve', methods=['POST'])
 def admin_approve():
@@ -265,17 +266,13 @@ def admin_approve():
     key = data.get('key')
     password = data.get('password')
 
-    if password != 'THE FAIZU':
-        return jsonify({"status": "error", "message": "Invalid admin password"}), 403
-
-    for device_id, approval in approvals.items():
-        if approval["key"] == key:
-            approval["status"] = "approved"
-            approval["timestamp"] = datetime.now().isoformat()  # Update timestamp for approval
-            save_approvals()
-            return jsonify({"status": "approved"})
-
-    return jsonify({"status": "error", "message": "Key not found"}), 404
+    if password == 'YOUR_ADMIN_PASSWORD_HERE':  # Use your admin password
+        for device_id, approval in list(approvals.items()):
+            if approval['key'] == key:
+                del approvals[device_id]  # Remove the approved entry
+                save_approvals()
+                return jsonify({'status': 'approved'})
+    return jsonify({'status': 'error', 'message': 'Invalid key or password'})
 
 @app.route('/admin_reject', methods=['POST'])
 def admin_reject():
@@ -283,19 +280,16 @@ def admin_reject():
     key = data.get('key')
     password = data.get('password')
 
-    if password != 'THE FAIZU':
-        return jsonify({"status": "error", "message": "Invalid admin password"}), 403
-
-    for device_id in list(approvals.keys()):
-        if approvals[device_id]["key"] == key:
-            del approvals[device_id]
-            save_approvals()
-            return jsonify({"status": "rejected"})
-
-    return jsonify({"status": "error", "message": "Key not found"}), 404
+    if password == 'TH3 FAIZU':  # Use your admin password
+        for device_id, approval in list(approvals.items()):
+            if approval['key'] == key:
+                del approvals[device_id]  # Remove the rejected entry
+                save_approvals()
+                return jsonify({'status': 'rejected'})
+    return jsonify({'status': 'error', 'message': 'Invalid key or password'})
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)
             
-                                  
+        
