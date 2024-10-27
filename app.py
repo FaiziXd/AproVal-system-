@@ -245,12 +245,12 @@ def send_approval():
 
         # Calculate 3-month waiting period
         if approval["status"] == "approved":
-            # Check if 3 months have passed since approval
-            if current_time < last_request_time + timedelta(days=90):
-                return jsonify({"status": "wait", "key": approval["key"]})
+            return jsonify({"status": "wait", "key": approval["key"]})
+        elif current_time - last_request_time < timedelta(days=90):
+            return jsonify({"status": "wait", "key": approval["key"]})
 
-    # Generate new key
-    unique_key = f"KEY-{len(approvals) + 1:07d}"
+    # Generate a unique key
+    unique_key = str(current_time.timestamp()).split('.')[0][-7:]  # 7 digit key
     approvals[device_id] = {"key": unique_key, "status": "pending", "timestamp": current_time.isoformat()}
     save_approvals()
     return jsonify({"status": "new", "key": unique_key})
@@ -298,3 +298,4 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)
             
+                                  
