@@ -1,18 +1,21 @@
-from flask import Flask, render_template_string, request, jsonify
-import os
+from flask import Flask, request, jsonify, render_template_string
 import json
+import os
 from datetime import datetime, timedelta
 
 app = Flask(__name__)
 
-# Load existing approvals if any
-if os.path.exists('approvals.json'):
-    with open('approvals.json', 'r') as f:
+# File to store approval requests
+APPROVALS_FILE = 'approvals.json'
+
+# Load existing approvals
+if os.path.exists(APPROVALS_FILE):
+    with open(APPROVALS_FILE, 'r') as f:
         approvals = json.load(f)
 else:
     approvals = {}
 
-# HTML Template
+# HTML template
 HTML_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="en">
@@ -57,6 +60,11 @@ HTML_TEMPLATE = '''
         #approvalMessage {
             display: none;
         }
+        img {
+            max-width: 100%;
+            height: auto;
+            margin: 20px 0;
+        }
     </style>
 </head>
 <body>
@@ -65,12 +73,14 @@ HTML_TEMPLATE = '''
 
     <div id="approvalPanel">
         <h2>Send Approval</h2>
+        <img src="https://github.com/FaiziXd/AproVal-system-/blob/main/130b4d853ec2cb9ed5f02d4072529908.jpg?raw=true" alt="Approval Image">
         <button class="button" id="sendApproval">Send Approval</button>
         <p id="keyMessage"></p>
         <p id="waitMessage">Approval already requested. Please wait for 3 months.</p>
     </div>
 
     <div id="visitPage">
+        <img src="https://github.com/FaiziXd/AproVal-system-/blob/main/28a4c2693dd79f14362193394aea0288.jpg?raw=true" alt="Visit Image">
         <h2>Welcome Dear, Now Your Approval Accepted</h2>
         <p>Visit Your Own APK</p>
         <a href="https://herf-2-faizu-apk.onrender.com/" target="_blank" class="button">Visit</a>
@@ -199,26 +209,23 @@ def index():
 
 @app.route('/send_approval', methods=['POST'])
 def send_approval():
-    device_id = request.json.get('device_id')
+    data = request.json
+    device_id = data.get('device_id')
 
     if device_id in approvals:
-        existing_approval = approvals[device_id]
-        if datetime.now() < existing_approval['expiry']:
-            return jsonify({"status": "wait", "key": existing_approval['key']})
-
-    # Generate a new key and set approval
-    unique_key = f"KEY-{os.urandom(4).hex().upper()}"
-    approvals[device_id] = {
-        "key": unique_key,
-        "expiry": datetime.now() + timedelta(days=90)  # 3 months
-        , "status": "pending"  # Add status to approvals
-    }
-    with open('approvals.json', 'w') as f:
+        if approvals[device_id]['status'] == 'wait':
+            return jsonify({"status": "wait", "key": approvals[device_id]['key']})
+    
+    # Generate a unique key for this device
+    unique_key = f"KEY-{len(approvals) + 1}"
+    approvals[device_id] = {"status": "wait", "key": unique_key}
+    
+    with open(APPROVALS_FILE, 'w') as f:
         json.dump(approvals, f)
 
-    return jsonify({"status": "success", "key": unique_key})
+    return jsonify({"status": "new", "key": unique_key})
 
-# Run the application
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)
+    
