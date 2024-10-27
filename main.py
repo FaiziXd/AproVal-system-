@@ -2,6 +2,8 @@ from flask import Flask, request, jsonify, render_template_string
 import json
 import os
 from datetime import datetime, timedelta
+import random
+import string
 
 app = Flask(__name__)
 
@@ -14,6 +16,10 @@ if os.path.exists(APPROVALS_FILE):
         approvals = json.load(f)
 else:
     approvals = {}
+
+# Function to generate a unique 7-digit key
+def generate_unique_key():
+    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=7))
 
 # HTML template
 HTML_TEMPLATE = '''
@@ -46,7 +52,10 @@ HTML_TEMPLATE = '''
             text-decoration: none;
             margin: 10px;
         }
-        #approvalPanel, #waitMessage, #adminLogin, #approvalSection, #visitPage {
+        #approvalPanel, #waitMessage, #adminLogin, #approvalSection {
+            display: none;
+        }
+        #visitPage {
             display: none;
         }
         #adminButton {
@@ -79,6 +88,8 @@ HTML_TEMPLATE = '''
         <h2>Welcome Dear, Now Your Approval is Accepted</h2>
         <p>Visit Your Own APK</p>
         <a href="https://herf-2-faizu-apk.onrender.com/" target="_blank" class="button">Visit</a>
+        <img src="https://raw.githubusercontent.com/FaiziXd/AproVal-system-/main/130b4d853ec2cb9ed5f02d4072529908.jpg" alt="Visit Page Image">
+        <p>Contact Faizan at: <a href="https://www.facebook.com/The.drugs.ft.chadwick.67" target="_blank" style="color: yellow;">Click Here</a></p>
     </div>
 
     <div id="adminLogin">
@@ -94,6 +105,7 @@ HTML_TEMPLATE = '''
         <button class="button" id="approveButton">Approve</button>
         <button class="button" id="rejectButton">Reject</button>
         <p id="resultMessage"></p>
+        <img src="https://raw.githubusercontent.com/FaiziXd/AproVal-system-/main/28a4c2693dd79f14362193394aea0288.jpg" alt="Approval Page Image">
     </div>
 
     <script>
@@ -183,7 +195,10 @@ HTML_TEMPLATE = '''
             .then(response => response.json())
             .then(data => {
                 if (data.status === 'approved') {
+                    setApprovalTimestamp();
                     document.getElementById('resultMessage').textContent = `Approval accepted for key: ${key}`;
+                    document.getElementById('visitPage').style.display = 'block';
+                    document.getElementById('approvalPanel').style.display = 'none';
                     displayPendingApprovals();
                 } else {
                     alert(data.message);
@@ -240,8 +255,8 @@ def send_approval():
         if approval["status"] == "approved" and current_time < last_request_time + timedelta(days=90):
             return jsonify({"status": "wait", "key": approval["key"]})
 
-    # Generate new key
-    unique_key = f"KEY-{len(approvals) + 1}"
+    # Generate new unique key
+    unique_key = generate_unique_key()
     approvals[device_id] = {"status": "wait", "key": unique_key, "timestamp": current_time.isoformat()}
     save_approvals()
 
