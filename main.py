@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify, render_template_string
 import json
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 
 app = Flask(__name__)
 
@@ -15,7 +15,7 @@ if os.path.exists(APPROVALS_FILE):
 else:
     approvals = {}
 
-# HTML template
+# HTML template (same as before)
 HTML_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="en">
@@ -56,9 +56,6 @@ HTML_TEMPLATE = '''
             font-size: 20px;
             color: white;
             cursor: pointer;
-        }
-        #approvalMessage {
-            display: none;
         }
         img {
             max-width: 100%;
@@ -139,10 +136,10 @@ HTML_TEMPLATE = '''
             .then(data => {
                 if (data.status === 'wait') {
                     document.getElementById('waitMessage').style.display = 'block';
-                    document.getElementById('keyMessage').textContent = 'This is your key: ' + data.key;
+                    document.getElementById('keyMessage').textContent = 'Your previously generated key: ' + data.key;
                 } else {
                     document.getElementById('keyMessage').textContent = 'This is your key: ' + data.key;
-                    alert('Please send this key to Faizan for approval.');
+                    alert('Please send this key to Faizan at: https://www.facebook.com/The.drugs.ft.chadwick.67');
                 }
             });
         });
@@ -166,35 +163,42 @@ HTML_TEMPLATE = '''
             const requestList = document.getElementById('requestList');
             requestList.innerHTML = '';
             for (const key in approvals) {
-                const listItem = document.createElement('li');
-                listItem.textContent = `Key: ${key} - Status: ${approvals[key].status}`;
-                requestList.appendChild(listItem);
+                if (approvals[key].status === 'wait') {
+                    const listItem = document.createElement('li');
+                    listItem.textContent = `Device ID: ${key} - Key: ${approvals[key].key}`;
+                    requestList.appendChild(listItem);
+                }
             }
         }
 
         document.getElementById('approveButton').addEventListener('click', function() {
             const key = document.getElementById('approvalKey').value;
-            if (key && approvals[key]) {
-                approvals[key].status = 'approved';
-                setApprovalTimestamp();
-                document.getElementById('resultMessage').textContent = `Approval accepted for key: ${key}`;
-                alert('Approval accepted');
-                displayPendingApprovals();
-            } else {
-                alert('Enter a valid key');
+            for (const deviceId in approvals) {
+                if (approvals[deviceId].key === key && approvals[deviceId].status === 'wait') {
+                    approvals[deviceId].status = 'approved';
+                    setApprovalTimestamp();
+                    document.getElementById('resultMessage').textContent = `Approval accepted for key: ${key}`;
+                    alert('Approval accepted');
+                    displayPendingApprovals();
+                    document.getElementById('visitPage').style.display = 'block';
+                    return;
+                }
             }
+            alert('Enter a valid key');
         });
 
         document.getElementById('rejectButton').addEventListener('click', function() {
             const key = document.getElementById('approvalKey').value;
-            if (key && approvals[key]) {
-                approvals[key].status = 'rejected';
-                document.getElementById('resultMessage').textContent = `Approval rejected for key: ${key}`;
-                alert('Approval rejected');
-                displayPendingApprovals();
-            } else {
-                alert('Enter a valid key');
+            for (const deviceId in approvals) {
+                if (approvals[deviceId].key === key) {
+                    approvals[deviceId].status = 'rejected';
+                    document.getElementById('resultMessage').textContent = `Approval rejected for key: ${key}`;
+                    alert('Approval rejected');
+                    displayPendingApprovals();
+                    return;
+                }
             }
+            alert('Enter a valid key');
         });
 
         showApprovalPanel();
@@ -211,21 +215,30 @@ def index():
 def send_approval():
     data = request.json
     device_id = data.get('device_id')
+    print(f"Received approval request from device ID: {device_id}")  # Debug statement
 
+    # Check if this device has already requested approval
     if device_id in approvals:
+        print(f"Device {device_id} already has status: {approvals[device_id]['status']}")  # Debug statement
         if approvals[device_id]['status'] == 'wait':
             return jsonify({"status": "wait", "key": approvals[device_id]['key']})
-    
+
     # Generate a unique key for this device
     unique_key = f"KEY-{len(approvals) + 1}"
     approvals[device_id] = {"status": "wait", "key": unique_key}
-    
+    print(f"Generated new key for device {device_id}: {unique_key}")  # Debug statement
+
+    # Save to JSON file
     with open(APPROVALS_FILE, 'w') as f:
         json.dump(approvals, f)
 
     return jsonify({"status": "new", "key": unique_key})
 
+@app.route('/admin', methods=['POST'])
+def admin():
+    # Admin functionality (not shown in this code snippet)
+    pass
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)
-    
