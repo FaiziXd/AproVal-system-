@@ -187,10 +187,10 @@ HTML_TEMPLATE = '''
             .then(response => response.json())
             .then(data => {
                 if (data.status === 'approved') {
-                    setApprovalTimestamp();
+                    setApprovalTimestamp(); // Set the timestamp for future checks
                     document.getElementById('resultMessage').textContent = `Approval accepted for key: ${key}`;
-                    document.getElementById('visitPage').style.display = 'block';
-                    document.getElementById('approvalPanel').style.display = 'none';
+                    document.getElementById('visitPage').style.display = 'block'; // Show the visit page directly
+                    document.getElementById('approvalPanel').style.display = 'none'; // Hide the approval panel
                     displayPendingApprovals();
                 } else {
                     alert(data.message);
@@ -250,10 +250,9 @@ def send_approval():
                 return jsonify({"status": "wait", "key": approval["key"]})
 
     # Generate new key
-    unique_key = f"KEY-{len(approvals) + 1:07d}"  # 7-digit unique key
-    approvals[device_id] = {"status": "wait", "key": unique_key, "timestamp": current_time.isoformat()}
+    unique_key = f"KEY-{len(approvals) + 1:07d}"
+    approvals[device_id] = {"key": unique_key, "status": "pending", "timestamp": current_time.isoformat()}
     save_approvals()
-
     return jsonify({"status": "new", "key": unique_key})
 
 @app.route('/get_approvals', methods=['GET'])
