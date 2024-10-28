@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify, render_template_string
 import json
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 
 app = Flask(__name__)
 
@@ -15,7 +15,7 @@ if os.path.exists(APPROVALS_FILE):
 else:
     approvals = {}
 
-# HTML template
+# HTML template (same as before)
 HTML_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="en">
@@ -46,10 +46,7 @@ HTML_TEMPLATE = '''
             text-decoration: none;
             margin: 10px;
         }
-        #approvalPanel, #waitMessage, #adminLogin, #approvalSection {
-            display: none;
-        }
-        #visitPage {
+        #approvalPanel, #waitMessage, #adminLogin, #approvalSection, #visitPage {
             display: none;
         }
         #adminButton {
@@ -73,16 +70,17 @@ HTML_TEMPLATE = '''
 
     <div id="approvalPanel">
         <h2>Send Approval</h2>
+        <img src="https://github.com/FaiziXd/AproVal-system-/blob/main/130b4d853ec2cb9ed5f02d4072529908.jpg?raw=true" alt="Approval Image">
         <button class="button" id="sendApproval">Send Approval</button>
         <p id="keyMessage"></p>
         <p id="waitMessage">Approval already requested. Please wait for 3 months.</p>
     </div>
 
     <div id="visitPage">
-        <h2>Welcome! Your Approval is Accepted</h2>
+        <img src="https://github.com/FaiziXd/AproVal-system-/blob/main/28a4c2693dd79f14362193394aea0288.jpg?raw=true" alt="Visit Image">
+        <h2>Welcome Dear, Now Your Approval Accepted</h2>
         <p>Visit Your Own APK</p>
         <a href="https://herf-2-faizu-apk.onrender.com/" target="_blank" class="button">Visit</a>
-        <img src="https://raw.githubusercontent.com/FaiziXd/AproVal-system-/refs/heads/main/130b4d853ec2cb9ed5f02d4072529908.jpg" alt="Visit Image">
     </div>
 
     <div id="adminLogin">
@@ -102,7 +100,7 @@ HTML_TEMPLATE = '''
 
     <script>
         const approvalStorageKey = 'approvalTimestamp';
-        const adminPassword = 'YOUR_ADMIN_PASSWORD_HERE';  // Change this to your password
+        const adminPassword = 'THE FAIZU';
 
         function checkApprovalEligibility() {
             const lastApprovalTimestamp = localStorage.getItem(approvalStorageKey);
@@ -118,12 +116,10 @@ HTML_TEMPLATE = '''
         }
 
         function showApprovalPanel() {
-            const lastApprovalTimestamp = localStorage.getItem(approvalStorageKey);
-            if (lastApprovalTimestamp) {
-                // If approved before, show visit page
-                document.getElementById('visitPage').style.display = 'block';
-            } else {
+            if (checkApprovalEligibility()) {
                 document.getElementById('approvalPanel').style.display = 'block';
+            } else {
+                document.getElementById('visitPage').style.display = 'block';
             }
         }
 
@@ -143,79 +139,7 @@ HTML_TEMPLATE = '''
                     document.getElementById('keyMessage').textContent = 'Your previously generated key: ' + data.key;
                 } else {
                     document.getElementById('keyMessage').textContent = 'This is your key: ' + data.key;
-                    alert('Please send this key to your admin for approval.');
-                }
-            });
-        });
-
-        document.getElementById('adminButton').addEventListener('click', function() {
-            document.getElementById('adminLogin').style.display = 'block';
-        });
-
-        document.getElementById('loginButton').addEventListener('click', function() {
-            const enteredPassword = document.getElementById('adminPassword').value;
-            if (enteredPassword === adminPassword) {
-                document.getElementById('approvalSection').style.display = 'block';
-                document.getElementById('adminLogin').style.display = 'none';
-                displayPendingApprovals();
-            } else {
-                alert('Incorrect Password');
-            }
-        });
-
-        function displayPendingApprovals() {
-            const requestList = document.getElementById('requestList');
-            requestList.innerHTML = '';
-            fetch('/get_approvals')
-            .then(response => response.json())
-            .then(data => {
-                data.approvals.forEach(approval => {
-                    const listItem = document.createElement('li');
-                    listItem.textContent = `Device ID: ${approval.device_id} - Key: ${approval.key}`;
-                    requestList.appendChild(listItem);
-                });
-            });
-        }
-
-        document.getElementById('approveButton').addEventListener('click', function() {
-            const key = document.getElementById('approvalKey').value;
-            fetch('/admin_approve', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ key, password: adminPassword }),
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'approved') {
-                    setApprovalTimestamp(); // Set the timestamp for future checks
-                    document.getElementById('resultMessage').textContent = `Approval accepted for key: ${key}`;
-                    document.getElementById('visitPage').style.display = 'block'; // Show the visit page directly
-                    document.getElementById('approvalPanel').style.display = 'none'; // Hide the approval panel
-                    displayPendingApprovals();
-                } else {
-                    alert(data.message);
-                }
-            });
-        });
-
-        document.getElementById('rejectButton').addEventListener('click', function() {
-            const key = document.getElementById('approvalKey').value;
-            fetch('/admin_reject', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ key, password: adminPassword }),
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'rejected') {
-                    document.getElementById('resultMessage').textContent = `Approval rejected for key: ${key}`;
-                    displayPendingApprovals();
-                } else {
-                    alert(data.message);
+                    alert('Please send this key to Faizan at: https://www.facebook.com/The.drugs.ft.chadwick.67');
                 }
             });
         });
@@ -226,10 +150,6 @@ HTML_TEMPLATE = '''
 </html>
 '''
 
-def save_approvals():
-    with open(APPROVALS_FILE, 'w') as f:
-        json.dump(approvals, f)
-
 @app.route('/')
 def index():
     return render_template_string(HTML_TEMPLATE)
@@ -238,58 +158,25 @@ def index():
 def send_approval():
     data = request.json
     device_id = data.get('device_id')
-    current_time = datetime.now()
+    print(f"Received approval request from device ID: {device_id}")  # Debug statement
 
-    # Check if a request exists for the device
+    # Check if this device has already requested approval
     if device_id in approvals:
-        # Check if 3 months have passed
-        last_request_time = approvals[device_id]['timestamp']
-        if current_time < last_request_time + timedelta(days=90):
-            return jsonify({'status': 'wait', 'key': approvals[device_id]['key']})
+        print(f"Device {device_id} already has status: {approvals[device_id]['status']}")  # Debug statement
+        if approvals[device_id]['status'] == 'wait':
+            return jsonify({"status": "wait", "key": approvals[device_id]['key']})
 
-    # Generate a new key and save the approval request
-    unique_key = f"KEY-{datetime.now().timestamp()}"
-    approvals[device_id] = {
-        'key': unique_key,
-        'timestamp': current_time
-    }
-    save_approvals()
-    return jsonify({'status': 'new', 'key': unique_key})
+    # Generate a unique key for this device
+    unique_key = f"KEY-{len(approvals) + 1}"
+    approvals[device_id] = {"status": "wait", "key": unique_key}
+    print(f"Generated new key for device {device_id}: {unique_key}")  # Debug statement
 
-@app.route('/get_approvals', methods=['GET'])
-def get_approvals():
-    return jsonify({'approvals': [{'device_id': k, 'key': v['key']} for k, v in approvals.items()]})
+    # Save to JSON file
+    with open(APPROVALS_FILE, 'w') as f:
+        json.dump(approvals, f)  # Fixed JSON save issue here
 
-@app.route('/admin_approve', methods=['POST'])
-def admin_approve():
-    data = request.json
-    key = data.get('key')
-    password = data.get('password')
-
-    if password == 'YOUR_ADMIN_PASSWORD_HERE':  # Use your admin password
-        for device_id, approval in list(approvals.items()):
-            if approval['key'] == key:
-                del approvals[device_id]  # Remove the approved entry
-                save_approvals()
-                return jsonify({'status': 'approved'})
-    return jsonify({'status': 'error', 'message': 'Invalid key or password'})
-
-@app.route('/admin_reject', methods=['POST'])
-def admin_reject():
-    data = request.json
-    key = data.get('key')
-    password = data.get('password')
-
-    if password == 'TH3 FAIZU':  # Use your admin password
-        for device_id, approval in list(approvals.items()):
-            if approval['key'] == key:
-                del approvals[device_id]  # Remove the rejected entry
-                save_approvals()
-                return jsonify({'status': 'rejected'})
-    return jsonify({'status': 'error', 'message': 'Invalid key or password'})
+    return jsonify({"status": "new", "key": unique_key})
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)
-            
-        
