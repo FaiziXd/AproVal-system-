@@ -176,7 +176,8 @@ HTML_TEMPLATE = '''
             for (const deviceId in approvals) {
                 if (approvals[deviceId].key === key && approvals[deviceId].status === 'wait') {
                     approvals[deviceId].status = 'approved';
-                    setApprovalTimestamp();
+                    approvals[deviceId]['timestamp'] = Date.now();  // Set approval timestamp for the user
+                    setApprovalTimestamp();  // Set approval timestamp for the user
                     document.getElementById('resultMessage').textContent = `Approval accepted for key: ${key}`;
                     alert('Approval accepted');
                     displayPendingApprovals();
@@ -231,4 +232,3 @@ def send_approval():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)
-                            
