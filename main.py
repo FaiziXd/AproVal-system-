@@ -173,6 +173,7 @@ HTML_TEMPLATE = '''
 
         document.getElementById('approveButton').addEventListener('click', function() {
             const key = document.getElementById('approvalKey').value;
+            let found = false;
             for (const deviceId in approvals) {
                 if (approvals[deviceId].key === key && approvals[deviceId].status === 'wait') {
                     approvals[deviceId].status = 'approved';
@@ -181,24 +182,31 @@ HTML_TEMPLATE = '''
                     alert('Approval accepted');
                     displayPendingApprovals();
                     document.getElementById('visitPage').style.display = 'block';
-                    return;
+                    found = true;
+                    break;
                 }
             }
-            alert('Enter a valid key');
+            if (!found) {
+                alert('Enter a valid key');
+            }
         });
 
         document.getElementById('rejectButton').addEventListener('click', function() {
             const key = document.getElementById('approvalKey').value;
+            let found = false;
             for (const deviceId in approvals) {
                 if (approvals[deviceId].key === key) {
                     approvals[deviceId].status = 'rejected';
                     document.getElementById('resultMessage').textContent = `Approval rejected for key: ${key}`;
                     alert('Approval rejected');
                     displayPendingApprovals();
-                    return;
+                    found = true;
+                    break;
                 }
             }
-            alert('Enter a valid key');
+            if (!found) {
+                alert('Enter a valid key');
+            }
         });
 
         showApprovalPanel();
