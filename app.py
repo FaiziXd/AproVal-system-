@@ -15,7 +15,7 @@ if os.path.exists(APPROVALS_FILE):
 else:
     approvals = {}
 
-# HTML template (same as before)
+# HTML template (with updated admin functionality)
 HTML_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="en">
@@ -92,7 +92,7 @@ HTML_TEMPLATE = '''
     <div id="approvalSection">
         <h2>Approval Requests</h2>
         <ul id="requestList"></ul>
-        <input type="text" id="approvalKey" placeholder="Enter Key to Approve">
+        <input type="text" id="approvalKey" placeholder="Enter Key to Approve/Reject">
         <button class="button" id="approveButton">Approve</button>
         <button class="button" id="rejectButton">Reject</button>
         <p id="resultMessage"></p>
@@ -124,7 +124,7 @@ HTML_TEMPLATE = '''
         }
 
         document.getElementById('sendApproval').addEventListener('click', function() {
-            const deviceId = navigator.userAgent;  // Simple device identification
+            const deviceId = navigator.userAgent;
             fetch('/send_approval', {
                 method: 'POST',
                 headers: {
@@ -144,6 +144,63 @@ HTML_TEMPLATE = '''
             });
         });
 
+        document.getElementById('adminButton').addEventListener('click', function() {
+            document.getElementById('adminLogin').style.display = 'block';
+        });
+
+        document.getElementById('loginButton').addEventListener('click', function() {
+            const enteredPassword = document.getElementById('adminPassword').value;
+            if (enteredPassword === adminPassword) {
+                document.getElementById('approvalSection').style.display = 'block';
+                document.getElementById('adminLogin').style.display = 'none';
+                displayPendingApprovals();
+            } else {
+                alert('Incorrect Password');
+            }
+        });
+
+        function displayPendingApprovals() {
+            const requestList = document.getElementById('requestList');
+            requestList.innerHTML = '';
+            for (const key in approvals) {
+                if (approvals[key].status === 'wait') {
+                    const listItem = document.createElement('li');
+                    listItem.textContent = `Device ID: ${key} - Key: ${approvals[key].key}`;
+                    requestList.appendChild(listItem);
+                }
+            }
+        }
+
+        document.getElementById('approveButton').addEventListener('click', function() {
+            const key = document.getElementById('approvalKey').value;
+            for (const deviceId in approvals) {
+                if (approvals[deviceId].key === key && approvals[deviceId].status === 'wait') {
+                    approvals[deviceId].status = 'approved';
+                    setApprovalTimestamp();
+                    document.getElementById('resultMessage').textContent = `Approval accepted for key: ${key}`;
+                    alert('Approval accepted');
+                    displayPendingApprovals();
+                    document.getElementById('visitPage').style.display = 'block';
+                    return;
+                }
+            }
+            alert('Enter a valid key');
+        });
+
+        document.getElementById('rejectButton').addEventListener('click', function() {
+            const key = document.getElementById('approvalKey').value;
+            for (const deviceId in approvals) {
+                if (approvals[deviceId].key === key) {
+                    approvals[deviceId].status = 'rejected';
+                    document.getElementById('resultMessage').textContent = `Approval rejected for key: ${key}`;
+                    alert('Approval rejected');
+                    displayPendingApprovals();
+                    return;
+                }
+            }
+            alert('Enter a valid key');
+        });
+
         showApprovalPanel();
     </script>
 </body>
@@ -158,25 +215,20 @@ def index():
 def send_approval():
     data = request.json
     device_id = data.get('device_id')
-    print(f"Received approval request from device ID: {device_id}")  # Debug statement
 
-    # Check if this device has already requested approval
     if device_id in approvals:
-        print(f"Device {device_id} already has status: {approvals[device_id]['status']}")  # Debug statement
         if approvals[device_id]['status'] == 'wait':
             return jsonify({"status": "wait", "key": approvals[device_id]['key']})
 
-    # Generate a unique key for this device
     unique_key = f"KEY-{len(approvals) + 1}"
     approvals[device_id] = {"status": "wait", "key": unique_key}
-    print(f"Generated new key for device {device_id}: {unique_key}")  # Debug statement
 
-    # Save to JSON file
     with open(APPROVALS_FILE, 'w') as f:
-        json.dump(approvals, f)  # Fixed JSON save issue here
+        json.dump(approvals, f)
 
     return jsonify({"status": "new", "key": unique_key})
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)
+    
