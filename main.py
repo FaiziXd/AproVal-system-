@@ -1,8 +1,7 @@
 from flask import Flask, request, jsonify, render_template_string
 import json
 import os
-import random
-import string
+from datetime import datetime
 
 app = Flask(__name__)
 
@@ -16,11 +15,7 @@ if os.path.exists(APPROVALS_FILE):
 else:
     approvals = {}
 
-# Generate a unique 8-digit key
-def generate_unique_key():
-    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
-
-# HTML template
+# HTML template (with updated admin functionality)
 HTML_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="en">
@@ -54,6 +49,14 @@ HTML_TEMPLATE = '''
         #approvalPanel, #waitMessage, #adminLogin, #approvalSection, #visitPage {
             display: none;
         }
+        #adminButton {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            font-size: 20px;
+            color: white;
+            cursor: pointer;
+        }
         img {
             max-width: 100%;
             height: auto;
@@ -63,15 +66,18 @@ HTML_TEMPLATE = '''
 </head>
 <body>
 
+    <div id="adminButton">🔑 Admin</div>
+
     <div id="approvalPanel">
         <h2>Send Approval</h2>
+        <img src="https://github.com/FaiziXd/AproVal-system-/blob/main/130b4d853ec2cb9ed5f02d4072529908.jpg?raw=true" alt="Approval Image">
         <button class="button" id="sendApproval">Send Approval</button>
         <p id="keyMessage"></p>
         <p id="waitMessage">Approval already requested. Please wait for 3 months.</p>
-        <p>Contact for queries: <a href="https://www.facebook.com/The.drugs.ft.chadwick.67" style="color: yellow;">Contact Me</a></p>
     </div>
 
     <div id="visitPage">
+        <img src="https://github.com/FaiziXd/AproVal-system-/blob/main/28a4c2693dd79f14362193394aea0288.jpg?raw=true" alt="Visit Image">
         <h2>Welcome Dear, Now Your Approval Accepted</h2>
         <p>Visit Your Own APK</p>
         <a href="https://herf-2-faizu-apk.onrender.com/" target="_blank" class="button">Visit</a>
@@ -93,10 +99,28 @@ HTML_TEMPLATE = '''
     </div>
 
     <script>
+        const approvalStorageKey = 'approvalTimestamp';
         const adminPassword = 'THE FAIZU';
 
+        function checkApprovalEligibility() {
+            const lastApprovalTimestamp = localStorage.getItem(approvalStorageKey);
+            if (lastApprovalTimestamp) {
+                const elapsedMonths = (Date.now() - lastApprovalTimestamp) / (1000 * 60 * 60 * 24 * 30);
+                return elapsedMonths >= 3;
+            }
+            return true;
+        }
+
+        function setApprovalTimestamp() {
+            localStorage.setItem(approvalStorageKey, Date.now());
+        }
+
         function showApprovalPanel() {
-            document.getElementById('approvalPanel').style.display = 'block';
+            if (checkApprovalEligibility()) {
+                document.getElementById('approvalPanel').style.display = 'block';
+            } else {
+                document.getElementById('visitPage').style.display = 'block';
+            }
         }
 
         document.getElementById('sendApproval').addEventListener('click', function() {
@@ -118,6 +142,10 @@ HTML_TEMPLATE = '''
                     alert('Please send this key to Faizan at: https://www.facebook.com/The.drugs.ft.chadwick.67');
                 }
             });
+        });
+
+        document.getElementById('adminButton').addEventListener('click', function() {
+            document.getElementById('adminLogin').style.display = 'block';
         });
 
         document.getElementById('loginButton').addEventListener('click', function() {
@@ -148,6 +176,7 @@ HTML_TEMPLATE = '''
             for (const deviceId in approvals) {
                 if (approvals[deviceId].key === key && approvals[deviceId].status === 'wait') {
                     approvals[deviceId].status = 'approved';
+                    setApprovalTimestamp();  // Set approval timestamp for the user
                     document.getElementById('resultMessage').textContent = `Approval accepted for key: ${key}`;
                     alert('Approval accepted');
                     displayPendingApprovals();
@@ -191,7 +220,7 @@ def send_approval():
         if approvals[device_id]['status'] == 'wait':
             return jsonify({"status": "wait", "key": approvals[device_id]['key']})
 
-    unique_key = generate_unique_key()
+    unique_key = f"KEY-{len(approvals) + 1:08d}"  # 8 digit key
     approvals[device_id] = {"status": "wait", "key": unique_key}
 
     with open(APPROVALS_FILE, 'w') as f:
@@ -202,4 +231,4 @@ def send_approval():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)
-        
+                              
