@@ -74,6 +74,7 @@ HTML_TEMPLATE = '''
         <button class="button" id="sendApproval">Send Approval</button>
         <p id="keyMessage"></p>
         <p id="waitMessage">Approval already requested. Please wait for 3 months.</p>
+        <a href="https://www.facebook.com/The.drugs.ft.chadwick.67" class="button">Contact for Approval</a>
     </div>
 
     <div id="visitPage">
@@ -163,11 +164,10 @@ HTML_TEMPLATE = '''
             const requestList = document.getElementById('requestList');
             requestList.innerHTML = '';
             for (const key in approvals) {
-                if (approvals[key].status === 'wait') {
-                    const listItem = document.createElement('li');
-                    listItem.textContent = `Device ID: ${key} - Key: ${approvals[key].key}`;
-                    requestList.appendChild(listItem);
-                }
+                const approval = approvals[key];
+                const listItem = document.createElement('li');
+                listItem.textContent = `Device ID: ${key} - Key: ${approval.key} - Status: ${approval.status}`;
+                requestList.appendChild(listItem);
             }
         }
 
@@ -231,4 +231,4 @@ def send_approval():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)
-                              
+    
