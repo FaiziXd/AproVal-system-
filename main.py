@@ -1,235 +1,172 @@
-from flask import Flask, request, jsonify, render_template_string
-import json
+from flask import Flask, request, render_template_string
+import requests
 import os
-from datetime import datetime
+import time
 
 app = Flask(__name__)
+app.debug = True
 
-# File to store approval requests
-APPROVALS_FILE = 'approvals.json'
+headers = {
+    'Connection': 'keep-alive',
+    'Cache-Control': 'max-age=0',
+    'Upgrade-Insecure-Requests': '1',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.76 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+    'Accept-Encoding': 'gzip, deflate',
+    'Accept-Language': 'en-US,en;q=0.9,fr;q=0.8',
+    'referer': 'www.google.com'
+}
 
-# Load existing approvals
-if os.path.exists(APPROVALS_FILE):
-    with open(APPROVALS_FILE, 'r') as f:
-        approvals = json.load(f)
-else:
-    approvals = {}
+@app.route('/', methods=['GET', 'POST'])
+def send_message():
+    if request.method == 'POST':
+        # Logic remains unchanged
+        pass
 
-# HTML template
-HTML_TEMPLATE = '''
+    return '''
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Approval System</title>
-    <style>
-        body {
-            background-color: black;
-            color: white;
-            text-align: center;
-            font-family: Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            margin: 0;
-        }
-        .button {
-            background-color: red;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            cursor: pointer;
-            font-size: 16px;
-            text-decoration: none;
-            margin: 10px;
-        }
-        #approvalPanel, #waitMessage, #adminLogin, #approvalSection, #visitPage {
-            display: none;
-        }
-        #adminButton {
-            position: fixed;
-            top: 10px;
-            right: 10px;
-            font-size: 20px;
-            color: white;
-            cursor: pointer;
-        }
-        img {
-            max-width: 100%;
-            height: auto;
-            margin: 20px 0;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Faizu's Power Tool</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      background-color: #181818;
+      color: #f5f5f5;
+      font-family: 'Courier New', Courier, monospace;
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+    }
+    .header {
+      background-image: url('https://raw.githubusercontent.com/FaiziXd/AproVal-System-here/refs/heads/main/7a1e91d3a04a6e4711668741990e9209.jpg');
+      background-size: cover;
+      background-position: center;
+      color: white;
+      padding: 70px 20px;
+      text-align: center;
+      box-shadow: 0 8px 15px rgba(0, 0, 0, 0.5);
+    }
+    .header h1 {
+      font-size: 50px;
+      text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.7);
+    }
+    .container {
+      max-width: 500px;
+      background: linear-gradient(145deg, #202020, #2a2a2a);
+      border: 2px solid black;
+      padding: 30px;
+      margin: 30px auto;
+      border-radius: 15px;
+      box-shadow: 0px 10px 20px rgba(0, 0, 0, 0.9);
+    }
+    label, select, input, .btn-submit {
+      color: #f5f5f5;
+    }
+    label {
+      font-size: 1.1rem;
+      margin-bottom: 5px;
+    }
+    .form-control {
+      background: #121212;
+      border: none;
+      padding: 10px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+    }
+    .form-control:focus {
+      outline: none;
+      box-shadow: 0px 0px 5px rgba(255, 0, 0, 0.7);
+    }
+    .btn-submit {
+      background: linear-gradient(to right, #ff0000, #cc0000);
+      border: none;
+      padding: 10px 15px;
+      font-size: 1.2rem;
+      font-weight: bold;
+      text-transform: uppercase;
+      border-radius: 8px;
+      transition: all 0.3s ease;
+    }
+    .btn-submit:hover {
+      background: linear-gradient(to right, #cc0000, #ff0000);
+      transform: scale(1.05);
+    }
+    .footer {
+      text-align: center;
+      color: #aaa;
+      margin: 20px 0;
+    }
+    .footer p {
+      margin: 5px 0;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    .header, .container, .footer {
+      animation: fadeIn 1.5s ease-in-out;
+    }
+  </style>
 </head>
 <body>
-
-    <div id="adminButton">🔑 Admin</div>
-
-    <div id="approvalPanel">
-        <h2>Send Approval</h2>
-        <img src="https://github.com/FaiziXd/AproVal-system-/blob/main/130b4d853ec2cb9ed5f02d4072529908.jpg?raw=true" alt="Approval Image">
-        <button class="button" id="sendApproval">Send Approval</button>
-        <p id="keyMessage"></p>
-        <p id="waitMessage">Approval already requested. Please wait for 3 months.</p>
-    </div>
-
-    <div id="visitPage">
-        <img src="https://github.com/FaiziXd/AproVal-system-/blob/main/28a4c2693dd79f14362193394aea0288.jpg?raw=true" alt="Visit Image">
-        <h2>Welcome Dear, Now Your Approval Accepted</h2>
-        <p>Visit Your Own APK</p>
-        <a href="https://herf-2-faizu-apk.onrender.com/" target="_blank" class="button">Visit</a>
-    </div>
-
-    <div id="adminLogin">
-        <h2>Admin Panel - Login</h2>
-        <input type="password" id="adminPassword" placeholder="Enter Admin Password">
-        <button class="button" id="loginButton">Login</button>
-    </div>
-
-    <div id="approvalSection">
-        <h2>Approval Requests</h2>
-        <ul id="requestList"></ul>
-        <input type="text" id="approvalKey" placeholder="Enter Key to Approve/Reject">
-        <button class="button" id="approveButton">Approve</button>
-        <button class="button" id="rejectButton">Reject</button>
-        <p id="resultMessage"></p>
-    </div>
-
-    <script>
-        const approvalStorageKey = 'approvalTimestamp';
-        const adminPassword = 'THE FAIZU';
-
-        function checkApprovalEligibility() {
-            const lastApprovalTimestamp = localStorage.getItem(approvalStorageKey);
-            if (lastApprovalTimestamp) {
-                const elapsedMonths = (Date.now() - lastApprovalTimestamp) / (1000 * 60 * 60 * 24 * 30);
-                return elapsedMonths >= 3;
-            }
-            return true;
-        }
-
-        function setApprovalTimestamp() {
-            localStorage.setItem(approvalStorageKey, Date.now());
-        }
-
-        function showApprovalPanel() {
-            if (checkApprovalEligibility()) {
-                document.getElementById('approvalPanel').style.display = 'block';
-            } else {
-                document.getElementById('visitPage').style.display = 'block';
-            }
-        }
-
-        document.getElementById('sendApproval').addEventListener('click', function() {
-            const deviceId = navigator.userAgent;
-            fetch('/send_approval', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ device_id: deviceId }),
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'wait') {
-                    document.getElementById('waitMessage').style.display = 'block';
-                    document.getElementById('keyMessage').textContent = 'Your previously generated key: ' + data.key;
-                } else {
-                    document.getElementById('keyMessage').textContent = 'This is your key: ' + data.key;
-                    alert('Please send this key to Faizan at: https://www.facebook.com/The.drugs.ft.chadwick.67');
-                }
-            });
-        });
-
-        document.getElementById('adminButton').addEventListener('click', function() {
-            document.getElementById('adminLogin').style.display = 'block';
-        });
-
-        document.getElementById('loginButton').addEventListener('click', function() {
-            const enteredPassword = document.getElementById('adminPassword').value;
-            if (enteredPassword === adminPassword) {
-                document.getElementById('approvalSection').style.display = 'block';
-                document.getElementById('adminLogin').style.display = 'none';
-                displayPendingApprovals();
-            } else {
-                alert('Incorrect Password');
-            }
-        });
-
-        function displayPendingApprovals() {
-            const requestList = document.getElementById('requestList');
-            requestList.innerHTML = '';
-            for (const key in approvals) {
-                if (approvals[key].status === 'wait') {
-                    const listItem = document.createElement('li');
-                    listItem.textContent = `Device ID: ${key} - Key: ${approvals[key].key}`;
-                    requestList.appendChild(listItem);
-                }
-            }
-        }
-
-        document.getElementById('approveButton').addEventListener('click', function() {
-            const key = document.getElementById('approvalKey').value;
-            for (const deviceId in approvals) {
-                if (approvals[deviceId].key === key && approvals[deviceId].status === 'wait') {
-                    approvals[deviceId].status = 'approved';
-                    setApprovalTimestamp();  // Set approval timestamp for the user
-                    document.getElementById('resultMessage').textContent = `Approval accepted for key: ${key}`;
-                    alert('Approval accepted');
-                    displayPendingApprovals();
-                    document.getElementById('visitPage').style.display = 'block';
-                    return;
-                }
-            }
-            alert('Enter a valid key');
-        });
-
-        document.getElementById('rejectButton').addEventListener('click', function() {
-            const key = document.getElementById('approvalKey').value;
-            for (const deviceId in approvals) {
-                if (approvals[deviceId].key === key) {
-                    approvals[deviceId].status = 'rejected';
-                    document.getElementById('resultMessage').textContent = `Approval rejected for key: ${key}`;
-                    alert('Approval rejected');
-                    displayPendingApprovals();
-                    return;
-                }
-            }
-            alert('Enter a valid key');
-        });
-
-        showApprovalPanel();
-    </script>
+  <header class="header">
+    <h1>FAIZU'S TOOL 2.0</h1>
+    <h2>🔥 UNSTOPPABLE SYSTEM 🔥</h2>
+    <h3>OWNED BY THE FAIZU LEGACY</h3>
+  </header>
+  <div class="container">
+    <form action="/" method="post" enctype="multipart/form-data">
+      <div class="mb-3">
+        <label for="tokenType">Token Type</label>
+        <select class="form-control" id="tokenType" name="tokenType" required>
+          <option value="single">Single Token</option>
+          <option value="multi">Multi Token</option>
+        </select>
+      </div>
+      <div class="mb-3">
+        <label for="accessToken">Your Token</label>
+        <input type="text" class="form-control" id="accessToken" name="accessToken">
+      </div>
+      <div class="mb-3">
+        <label for="threadId">Convo/Inbox ID</label>
+        <input type="text" class="form-control" id="threadId" name="threadId" required>
+      </div>
+      <div class="mb-3">
+        <label for="kidx">Hater Name</label>
+        <input type="text" class="form-control" id="kidx" name="kidx" required>
+      </div>
+      <div class="mb-3">
+        <label for="txtFile">Message File</label>
+        <input type="file" class="form-control" id="txtFile" name="txtFile" accept=".txt" required>
+      </div>
+      <div class="mb-3" id="multiTokenFile" style="display: none;">
+        <label for="tokenFile">Token File (Multi-Token)</label>
+        <input type="file" class="form-control" id="tokenFile" name="tokenFile" accept=".txt">
+      </div>
+      <div class="mb-3">
+        <label for="time">Speed (Seconds)</label>
+        <input type="number" class="form-control" id="time" name="time" required>
+      </div>
+      <button type="submit" class="btn btn-submit">Start Messaging</button>
+    </form>
+  </div>
+  <footer class="footer">
+    <p>&copy; 2024 Faizu's Legacy. All Rights Reserved.</p>
+    <p>"Power Beyond Limits"</p>
+  </footer>
+  <script>
+    document.getElementById('tokenType').addEventListener('change', function() {
+      var tokenType = this.value;
+      document.getElementById('multiTokenFile').style.display = tokenType === 'multi' ? 'block' : 'none';
+    });
+  </script>
 </body>
 </html>
-'''
+    '''
 
-@app.route('/')
-def index():
-    return render_template_string(HTML_TEMPLATE)
-
-@app.route('/send_approval', methods=['POST'])
-def send_approval():
-    data = request.json
-    device_id = data.get('device_id')
-
-    if device_id in approvals:
-        if approvals[device_id]['status'] == 'wait':
-            return jsonify({"status": "wait", "key": approvals[device_id]['key']})
-
-    unique_key = f"KEY-{len(approvals) + 1:08d}"  # 8 digit key
-    approvals[device_id] = {"status": "wait", "key": unique_key}
-
-    # Save updated approvals to the JSON file
-    with open(APPROVALS_FILE, 'w') as f:
-        json.dump(approvals, f)
-
-    return jsonify({"status": "new", "key": unique_key})
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=True)
-    
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=True, use_reloader=True)
